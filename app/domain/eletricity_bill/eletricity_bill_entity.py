@@ -1,4 +1,4 @@
-class eletricity_bill:
+class EletricityBill:
     def __init__(self, ri, rf, gc, tc):
         self.readingInital = ri
         self.readingFinal = rf
