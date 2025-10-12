@@ -1,0 +1,4 @@
+from .base_repository import BaseRepository
+from .house_repository import CasaRepository
+from .tenant_repository import InquilinoRepository
+from .consumption_repository import ConsumoRepository
