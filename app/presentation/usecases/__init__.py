@@ -1,0 +1,1 @@
+from .generate_pdf_usecase import gerar_conta_inquilino
