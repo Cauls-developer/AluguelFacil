@@ -4,6 +4,8 @@ from app.data.models.house import Casa
 from app.data.models.Tenant import Inquilino
 from app.data.repositories.house_repository import CasaRepository
 from app.data.repositories.tenant_repository import InquilinoRepository
+from app.presentation.views.widgets.header_widget import create_header
+from app.presentation.views.widgets.house_list_widget import HouseListWidget
 
 class HouseRegisterView(tk.Frame):
     """Tela de registro e gerenciamento de casas"""
@@ -20,185 +22,24 @@ class HouseRegisterView(tk.Frame):
     
     def create_widgets(self):
         # Header
-        header_frame = tk.Frame(self, bg='#1565C0')
-        header_frame.pack(fill='x')
-        
-        tk.Label(
-            header_frame,
-            text="Gerenciamento de Casas",
-            font=("Arial", 20, "bold"),
-            bg='#1565C0',
-            fg='white'
-        ).pack(pady=15)
-        
-        tk.Button(
-            header_frame,
-            text="← Voltar",
-            command=lambda: self.controller.show_frame("home"),
-            bg='#0D47A1',
-            fg='white',
-            font=("Arial", 10),
-            relief='flat',
-            cursor='hand2'
-        ).place(x=10, y=10)
-        
-        # Container principal
-        container = tk.Frame(self, bg='#f0f0f0')
-        container.pack(fill='both', expand=True, padx=20, pady=20)
-        
-        # Botão adicionar no topo
-        top_frame = tk.Frame(container, bg='#f0f0f0')
-        top_frame.pack(fill='x', pady=(0, 10))
-        
-        tk.Button(
-            top_frame,
-            text="➕ Adicionar Nova Casa",
-            command=self.open_add_dialog,
-            bg='#4CAF50',
-            fg='white',
-            font=("Arial", 12, "bold"),
-            padx=20,
-            pady=10,
-            relief='flat',
-            cursor='hand2'
-        ).pack(side='left')
-        
-        # Barra de busca
-        search_frame = tk.Frame(container, bg='white', relief='solid', borderwidth=1)
-        search_frame.pack(fill='x', pady=(0, 15))
-        
-        tk.Label(search_frame, text="🔍 Buscar:", bg='white', font=("Arial", 10)).pack(side='left', padx=10)
-        self.search_var = tk.StringVar()
+        create_header(self, self.controller, title="Gerenciamento de Casas")
+
+        # House list widget
+        self.house_list = HouseListWidget(self, on_add=self.open_add_dialog, on_edit=self.open_edit_dialog, on_delete=self.delete_casa)
+        self.search_var = self.house_list.search_var
         self.search_var.trace('w', lambda *args: self.filter_casas())
-        search_entry = tk.Entry(search_frame, textvariable=self.search_var, font=("Arial", 11), width=40)
-        search_entry.pack(side='left', padx=5, pady=8)
-        
-        # Frame da lista com scroll
-        list_container = tk.Frame(container, bg='white', relief='solid', borderwidth=1)
-        list_container.pack(fill='both', expand=True)
-        
-        # Canvas para scroll
-        self.canvas = tk.Canvas(list_container, bg='white', highlightthickness=0)
-        scrollbar = ttk.Scrollbar(list_container, orient="vertical", command=self.canvas.yview)
-        self.scrollable_frame = tk.Frame(self.canvas, bg='white')
-        
-        self.scrollable_frame.bind(
-            "<Configure>",
-            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-        )
-        
-        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-        self.canvas.configure(yscrollcommand=scrollbar.set)
-        
-        self.canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-        
-        # Bind mousewheel
-        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        self.canvas = self.house_list.canvas
+        self.scrollable_frame = self.house_list.scrollable_frame
     
     def _on_mousewheel(self, event):
         self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
     
     def load_casas(self):
         """Carrega casas na lista"""
-        # Limpa frame
-        for widget in self.scrollable_frame.winfo_children():
-            widget.destroy()
-        
         casas = self.casa_repo.get_all()
-        
-        if not casas:
-            tk.Label(
-                self.scrollable_frame,
-                text="Nenhuma casa cadastrada ainda",
-                font=("Arial", 12),
-                bg='white',
-                fg='gray'
-            ).pack(pady=50)
-            return
-        
-        # Header da lista
-        header = tk.Frame(self.scrollable_frame, bg='#E3F2FD', height=40)
-        header.pack(fill='x', padx=10, pady=(10, 0))
-        
-        tk.Label(header, text="Casa", bg='#E3F2FD', font=("Arial", 10, "bold"), width=20, anchor='w').pack(side='left', padx=5)
-        tk.Label(header, text="Endereço", bg='#E3F2FD', font=("Arial", 10, "bold"), width=40, anchor='w').pack(side='left', padx=5)
-        tk.Label(header, text="Inquilino", bg='#E3F2FD', font=("Arial", 10, "bold"), width=25, anchor='w').pack(side='left', padx=5)
-        tk.Label(header, text="Ações", bg='#E3F2FD', font=("Arial", 10, "bold"), width=15, anchor='center').pack(side='left', padx=5)
-        
-        # Itens da lista
-        for i, casa in enumerate(casas):
-            self.create_casa_item(casa, i)
+        self.house_list.set_items(casas)  # items handled by widget
     
-    def create_casa_item(self, casa, index):
-        """Cria um item de casa na lista"""
-        bg_color = '#FFFFFF' if index % 2 == 0 else '#F5F5F5'
-        
-        item_frame = tk.Frame(self.scrollable_frame, bg=bg_color, relief='solid', borderwidth=1)
-        item_frame.pack(fill='x', padx=10, pady=2)
-        
-        # Nome
-        tk.Label(
-            item_frame,
-            text=casa.nome,
-            bg=bg_color,
-            font=("Arial", 10),
-            width=20,
-            anchor='w'
-        ).pack(side='left', padx=5, pady=10)
-        
-        # Endereço
-        tk.Label(
-            item_frame,
-            text=casa.endereco[:50] + "..." if len(casa.endereco) > 50 else casa.endereco,
-            bg=bg_color,
-            font=("Arial", 10),
-            width=40,
-            anchor='w'
-        ).pack(side='left', padx=5)
-        
-        # Inquilino
-        inquilino_text = casa.inquilino_atual.nome_completo if casa.inquilino_atual else "Disponível"
-        inquilino_color = '#4CAF50' if not casa.inquilino_atual else '#1976D2'
-        tk.Label(
-            item_frame,
-            text=inquilino_text,
-            bg=bg_color,
-            fg=inquilino_color,
-            font=("Arial", 10, "bold" if not casa.inquilino_atual else "normal"),
-            width=25,
-            anchor='w'
-        ).pack(side='left', padx=5)
-        
-        # Botões de ação
-        action_frame = tk.Frame(item_frame, bg=bg_color)
-        action_frame.pack(side='left', padx=5)
-        
-        tk.Button(
-            action_frame,
-            text="✏️ Editar",
-            command=lambda: self.open_edit_dialog(casa),
-            bg='#2196F3',
-            fg='white',
-            font=("Arial", 9),
-            relief='flat',
-            cursor='hand2',
-            padx=10,
-            pady=5
-        ).pack(side='left', padx=2)
-        
-        tk.Button(
-            action_frame,
-            text="🗑️",
-            command=lambda: self.delete_casa(casa.id),
-            bg='#F44336',
-            fg='white',
-            font=("Arial", 9),
-            relief='flat',
-            cursor='hand2',
-            padx=10,
-            pady=5
-        ).pack(side='left', padx=2)
+    # create_casa_item removed — rendering delegated to HouseListWidget
     
     def filter_casas(self):
         """Filtra casas pela busca"""
@@ -233,8 +74,7 @@ class HouseRegisterView(tk.Frame):
         tk.Label(header, text="Inquilino", bg='#E3F2FD', font=("Arial", 10, "bold"), width=25, anchor='w').pack(side='left', padx=5)
         tk.Label(header, text="Ações", bg='#E3F2FD', font=("Arial", 10, "bold"), width=15, anchor='center').pack(side='left', padx=5)
         
-        for i, casa in enumerate(filtered):
-            self.create_casa_item(casa, i)
+        self.house_list.set_items(filtered)  # items handled by widget
     
     def open_add_dialog(self):
         """Abre diálogo para adicionar casa"""
