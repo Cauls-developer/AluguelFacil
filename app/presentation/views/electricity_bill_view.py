@@ -8,270 +8,86 @@ from app.data.repositories.house_repository import CasaRepository
 from app.data.repositories.consumption_repository import ConsumoRepository
 from app.domain.eletricity_bill.eletricity_bill_entity import EletricityBill
 from app.presentation.usecases.generate_pdf_usecase import gerar_conta_inquilino
+from app.presentation.views.widgets.header_widget import create_header
+from app.presentation.views.widgets.new_bill_form_widget import NewBillForm
+from app.presentation.views.widgets.history_list_widget import HistoryList
 
 load_dotenv()
 
+
 class ElectricityBillView(tk.Frame):
-    """Tela de geração de conta de energia"""
-    
+    """Tela de geração de conta de energia (refatorada com widgets)"""
+
     def __init__(self, parent, controller):
         super().__init__(parent, bg='#f0f0f0')
         self.controller = controller
         self.session = controller.get_session()
         self.casa_repo = CasaRepository(self.session)
         self.consumo_repo = ConsumoRepository(self.session)
-        
+
         # Inicializar variáveis
         self.casas_dict = {}
-        
+
         self.create_widgets()
     
     def create_widgets(self):
         # Header
-        header_frame = tk.Frame(self, bg='#1565C0')
-        header_frame.pack(fill='x')
-        
-        tk.Label(
-            header_frame,
-            text="Contas de Energia",
-            font=("Arial", 20, "bold"),
-            bg='#1565C0',
-            fg='white'
-        ).pack(pady=15)
-        
-        tk.Button(
-            header_frame,
-            text="← Voltar",
-            command=lambda: self.controller.show_frame("home"),
-            bg='#0D47A1',
-            fg='white',
-            font=("Arial", 10),
-            relief='flat',
-            cursor='hand2'
-        ).place(x=10, y=10)
-        
+        create_header(self, self.controller)
+
         # Container principal com abas
         container = tk.Frame(self, bg='#f0f0f0')
         container.pack(fill='both', expand=True, padx=20, pady=20)
-        
+
         # Notebook para abas
         self.notebook = ttk.Notebook(container)
         self.notebook.pack(fill='both', expand=True)
-        
+
         # Aba 1: Nova Conta
         tab_new = tk.Frame(self.notebook, bg='white')
         self.notebook.add(tab_new, text="  📝 Nova Conta  ")
-        
+
         # Aba 2: Histórico
         tab_history = tk.Frame(self.notebook, bg='white')
         self.notebook.add(tab_history, text="  📊 Histórico & Reimprimir  ")
-        
+
         # Criar as abas (histórico primeiro para criar filter_casa)
         self.create_history_tab(tab_history)
         self.create_new_bill_tab(tab_new)
-        
+
         # Carregar casas depois que tudo está criado
         self.load_casas()
     
     def create_new_bill_tab(self, parent):
-        """Cria aba de nova conta"""
-        # Scroll
-        canvas = tk.Canvas(parent, bg='white', highlightthickness=0)
-        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas, bg='white')
-        
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        """Cria aba de nova conta usando o widget NewBillForm"""
+        # cria o widget de formulário e conecta callbacks para cálculo e ações
+        self.new_bill_widget = NewBillForm(
+            parent,
+            on_casa_selected=self.on_casa_selected,
+            on_calc=self.calcular_consumo,
+            on_save=self.save_consumo,
+            on_generate_pdf=self.gerar_pdf,
+            on_clear=self.clear_form,
         )
-        
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-        
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-        
-        # Conteúdo
-        content = tk.Frame(scrollable_frame, bg='white')
-        content.pack(fill='both', expand=True, padx=40, pady=30)
-        
-        # Título
-        tk.Label(content, text="Registrar Novo Consumo", font=("Arial", 16, "bold"), bg='white', fg='#1565C0').pack(anchor='w', pady=(0, 20))
-        
-        # Casa
-        tk.Label(content, text="Selecione a Casa:*", bg='white', font=("Arial", 11, "bold")).pack(anchor='w', pady=(10, 5))
-        self.combo_casa = ttk.Combobox(content, font=("Arial", 11), width=60, state='readonly')
-        self.combo_casa.pack(fill='x', pady=(0, 15))
-        self.combo_casa.bind('<<ComboboxSelected>>', self.on_casa_selected)
-        
-        # Período
-        period_frame = tk.Frame(content, bg='white')
-        period_frame.pack(fill='x', pady=(0, 15))
-        
-        mes_frame = tk.Frame(period_frame, bg='white')
-        mes_frame.pack(side='left', fill='x', expand=True, padx=(0, 10))
-        tk.Label(mes_frame, text="Mês:*", bg='white', font=("Arial", 11, "bold")).pack(anchor='w')
-        self.combo_mes = ttk.Combobox(mes_frame, font=("Arial", 11), state='readonly',
-                                       values=['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-                                              'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'])
-        self.combo_mes.current(datetime.now().month - 1)
-        self.combo_mes.pack(fill='x')
-        
-        ano_frame = tk.Frame(period_frame, bg='white')
-        ano_frame.pack(side='left', fill='x', expand=True)
-        tk.Label(ano_frame, text="Ano:*", bg='white', font=("Arial", 11, "bold")).pack(anchor='w')
-        self.entry_ano = tk.Entry(ano_frame, font=("Arial", 11))
-        self.entry_ano.insert(0, str(datetime.now().year))
-        self.entry_ano.pack(fill='x')
-        
-        # Separador
-        ttk.Separator(content, orient='horizontal').pack(fill='x', pady=20)
-        
-        # Leituras
-        tk.Label(content, text="Leituras do Medidor", font=("Arial", 14, "bold"), bg='white', fg='#1565C0').pack(anchor='w', pady=(0, 15))
-        
-        readings_frame = tk.Frame(content, bg='white')
-        readings_frame.pack(fill='x', pady=(0, 15))
-        
-        left_readings = tk.Frame(readings_frame, bg='white')
-        left_readings.pack(side='left', fill='x', expand=True, padx=(0, 10))
-        
-        tk.Label(left_readings, text="Leitura Anterior (kWh):*", bg='white', font=("Arial", 11)).pack(anchor='w')
-        self.entry_leitura_anterior = tk.Entry(left_readings, font=("Arial", 11))
-        self.entry_leitura_anterior.pack(fill='x', pady=(5, 0))
-        
-        tk.Label(left_readings, text="Leitura Atual (kWh):*", bg='white', font=("Arial", 11)).pack(anchor='w', pady=(15, 0))
-        self.entry_leitura_atual = tk.Entry(left_readings, font=("Arial", 11))
-        self.entry_leitura_atual.pack(fill='x', pady=(5, 0))
-        self.entry_leitura_atual.bind('<KeyRelease>', self.calcular_consumo)
-        
-        right_readings = tk.Frame(readings_frame, bg='white')
-        right_readings.pack(side='left', fill='x', expand=True)
-        
-        tk.Label(right_readings, text="Consumo Geral do Local (kWh):*", bg='white', font=("Arial", 11)).pack(anchor='w')
-        self.entry_consumo_geral = tk.Entry(right_readings, font=("Arial", 11))
-        self.entry_consumo_geral.pack(fill='x', pady=(5, 0))
-        self.entry_consumo_geral.bind('<KeyRelease>', self.calcular_consumo)
-        
-        tk.Label(right_readings, text="Valor Total da Conta (R$):*", bg='white', font=("Arial", 11)).pack(anchor='w', pady=(15, 0))
-        self.entry_valor_total = tk.Entry(right_readings, font=("Arial", 11))
-        self.entry_valor_total.pack(fill='x', pady=(5, 0))
-        self.entry_valor_total.bind('<KeyRelease>', self.calcular_consumo)
-        
-        # Cálculos
-        calc_frame = tk.LabelFrame(content, text="  💡 Cálculo Automático  ", bg='#E8F5E9', font=("Arial", 12, "bold"), fg='#2E7D32')
-        calc_frame.pack(fill='x', pady=20)
-        
-        calc_content = tk.Frame(calc_frame, bg='#E8F5E9')
-        calc_content.pack(fill='x', padx=20, pady=15)
-        
-        self.lbl_consumo_individual = tk.Label(calc_content, text="Consumo Individual: - kWh", bg='#E8F5E9', font=("Arial", 12))
-        self.lbl_consumo_individual.pack(anchor='w', pady=3)
-        
-        self.lbl_proporcional = tk.Label(calc_content, text="Percentual: - %", bg='#E8F5E9', font=("Arial", 12))
-        self.lbl_proporcional.pack(anchor='w', pady=3)
-        
-        self.lbl_valor_individual = tk.Label(calc_content, text="Valor a Pagar: R$ 0,00", bg='#E8F5E9', font=("Arial", 14, "bold"), fg='#d32f2f')
-        self.lbl_valor_individual.pack(anchor='w', pady=3)
-        
-        # Botões
-        btn_frame = tk.Frame(content, bg='white')
-        btn_frame.pack(fill='x', pady=20)
-        
-        tk.Button(
-            btn_frame,
-            text="💾 Salvar Consumo",
-            command=self.save_consumo,
-            bg='#4CAF50',
-            fg='white',
-            font=("Arial", 12, "bold"),
-            relief='flat',
-            cursor='hand2',
-            padx=30,
-            pady=12
-        ).pack(side='left', padx=5)
-        
-        tk.Button(
-            btn_frame,
-            text="📄 Gerar PDF",
-            command=self.gerar_pdf,
-            bg='#2196F3',
-            fg='white',
-            font=("Arial", 12, "bold"),
-            relief='flat',
-            cursor='hand2',
-            padx=30,
-            pady=12
-        ).pack(side='left', padx=5)
-        
-        tk.Button(
-            btn_frame,
-            text="🗑️ Limpar",
-            command=self.clear_form,
-            bg='#FF9800',
-            fg='white',
-            font=("Arial", 12, "bold"),
-            relief='flat',
-            cursor='hand2',
-            padx=30,
-            pady=12
-        ).pack(side='left', padx=5)
+
+        # expõe widgets para uso nas funções existentes
+        widgets = self.new_bill_widget.get_widgets()
+        self.combo_casa = widgets['combo_casa']
+        self.combo_mes = widgets['combo_mes']
+        self.entry_ano = widgets['entry_ano']
+        self.entry_leitura_anterior = widgets['entry_leitura_anterior']
+        self.entry_leitura_atual = widgets['entry_leitura_atual']
+        self.entry_consumo_geral = widgets['entry_consumo_geral']
+        self.entry_valor_total = widgets['entry_valor_total']
+        self.lbl_consumo_individual = widgets['lbl_consumo_individual']
+        self.lbl_proporcional = widgets['lbl_proporcional']
+        self.lbl_valor_individual = widgets['lbl_valor_individual']
     
     def create_history_tab(self, parent):
-        """Cria aba de histórico"""
-        container = tk.Frame(parent, bg='white')
-        container.pack(fill='both', expand=True, padx=20, pady=20)
-        
-        # Título
-        tk.Label(container, text="Histórico de Contas", font=("Arial", 16, "bold"), bg='white', fg='#1565C0').pack(anchor='w', pady=(0, 15))
-        
-        # Filtros
-        filter_frame = tk.Frame(container, bg='#F5F5F5', relief='solid', borderwidth=1)
-        filter_frame.pack(fill='x', pady=(0, 15))
-        
-        filter_content = tk.Frame(filter_frame, bg='#F5F5F5')
-        filter_content.pack(fill='x', padx=15, pady=15)
-        
-        tk.Label(filter_content, text="Filtrar por Casa:", bg='#F5F5F5', font=("Arial", 10)).pack(side='left', padx=(0, 10))
-        self.filter_casa = ttk.Combobox(filter_content, font=("Arial", 10), width=40, state='readonly')
-        self.filter_casa.pack(side='left', padx=5)
-        self.filter_casa.bind('<<ComboboxSelected>>', lambda e: self.load_history())
-        
-        tk.Button(
-            filter_content,
-            text="🔄 Atualizar",
-            command=self.load_history,
-            bg='#2196F3',
-            fg='white',
-            font=("Arial", 10),
-            relief='flat',
-            cursor='hand2',
-            padx=15,
-            pady=5
-        ).pack(side='left', padx=10)
-        
-        # Lista com scroll
-        list_container = tk.Frame(container, bg='white', relief='solid', borderwidth=1)
-        list_container.pack(fill='both', expand=True)
-        
-        # Canvas
-        self.history_canvas = tk.Canvas(list_container, bg='white', highlightthickness=0)
-        history_scrollbar = ttk.Scrollbar(list_container, orient="vertical", command=self.history_canvas.yview)
-        self.history_frame = tk.Frame(self.history_canvas, bg='white')
-        
-        self.history_frame.bind(
-            "<Configure>",
-            lambda e: self.history_canvas.configure(scrollregion=self.history_canvas.bbox("all"))
-        )
-        
-        self.history_canvas.create_window((0, 0), window=self.history_frame, anchor="nw")
-        self.history_canvas.configure(yscrollcommand=history_scrollbar.set)
-        
-        self.history_canvas.pack(side="left", fill="both", expand=True)
-        history_scrollbar.pack(side="right", fill="y")
-        
-        # Carregar histórico
-        # Não carrega automaticamente, só quando load_casas() for chamado
+        # utiliza o widget HistoryList
+        self.history_widget = HistoryList(parent, on_filter_change=self.load_history)
+        self.filter_casa = self.history_widget.filter_casa
+        self.history_canvas = self.history_widget.history_canvas
+        self.history_frame = self.history_widget.history_frame
     
     def load_casas(self):
         """Carrega casas nos comboboxes"""
@@ -402,7 +218,7 @@ class ElectricityBillView(tk.Frame):
                 "inquilino": casa.inquilino_atual.nome_completo,
                 "endereco": casa.endereco,
                 "mes_referencia": f"{self.combo_mes.get()} / {ano}",
-                "vencimento": "15/03/2025",
+                "vencimento": f"{5:02d}/{mes+1:02d}/{ano}",
                 "leituras": [
                     {"data": "Anterior", "leitura": leitura_ant},
                     {"data": "Atual", "leitura": leitura_atual}
@@ -440,9 +256,12 @@ class ElectricityBillView(tk.Frame):
     
     def load_history(self):
         """Carrega histórico de consumos"""
-        # Limpa frame
-        for widget in self.history_frame.winfo_children():
-            widget.destroy()
+        # Limpa frame via widget
+        if hasattr(self, 'history_widget'):
+            self.history_widget.clear_list()
+        else:
+            for widget in self.history_frame.winfo_children():
+                widget.destroy()
         
         # Filtra por casa se selecionada
         filter_value = self.filter_casa.get()
@@ -474,95 +293,20 @@ class ElectricityBillView(tk.Frame):
                 fg='gray'
             ).pack(pady=50)
             return
-        
-        # Header
-        header = tk.Frame(self.history_frame, bg='#E3F2FD', height=40)
-        header.pack(fill='x', padx=10, pady=(10, 0))
-        
-        tk.Label(header, text="Período", bg='#E3F2FD', font=("Arial", 10, "bold"), width=12, anchor='center').pack(side='left', padx=5)
-        tk.Label(header, text="Casa", bg='#E3F2FD', font=("Arial", 10, "bold"), width=20, anchor='w').pack(side='left', padx=5)
-        tk.Label(header, text="Inquilino", bg='#E3F2FD', font=("Arial", 10, "bold"), width=20, anchor='w').pack(side='left', padx=5)
-        tk.Label(header, text="Consumo", bg='#E3F2FD', font=("Arial", 10, "bold"), width=10, anchor='center').pack(side='left', padx=5)
-        tk.Label(header, text="Valor", bg='#E3F2FD', font=("Arial", 10, "bold"), width=12, anchor='center').pack(side='left', padx=5)
-        tk.Label(header, text="Ações", bg='#E3F2FD', font=("Arial", 10, "bold"), width=20, anchor='center').pack(side='left', padx=5)
-        
-        # Items
-        for i, consumo in enumerate(consumos_todos):
-            self.create_history_item(consumo, i)
-    
-    def create_history_item(self, consumo, index):
-        """Cria item do histórico"""
-        bg_color = '#FFFFFF' if index % 2 == 0 else '#F5F5F5'
-        
-        item_frame = tk.Frame(self.history_frame, bg=bg_color, relief='solid', borderwidth=1)
-        item_frame.pack(fill='x', padx=10, pady=2)
-        
-        # Período
-        periodo = f"{consumo.mes:02d}/{consumo.ano}"
-        tk.Label(item_frame, text=periodo, bg=bg_color, font=("Arial", 10, "bold"), width=12, anchor='center').pack(side='left', padx=5, pady=10)
-        
-        # Casa
-        casa_nome = consumo.casa_obj.nome if hasattr(consumo, 'casa_obj') else consumo.casa.nome
-        tk.Label(item_frame, text=casa_nome, bg=bg_color, font=("Arial", 10), width=20, anchor='w').pack(side='left', padx=5)
-        
-        # Inquilino
-        inquilino_nome = "-"
-        if hasattr(consumo, 'casa_obj') and consumo.casa_obj.inquilino_atual:
-            inquilino_nome = consumo.casa_obj.inquilino_atual.nome_completo[:20]
-        elif consumo.casa.inquilino_atual:
-            inquilino_nome = consumo.casa.inquilino_atual.nome_completo[:20]
-        tk.Label(item_frame, text=inquilino_nome, bg=bg_color, font=("Arial", 10), width=20, anchor='w').pack(side='left', padx=5)
-        
-        # Consumo
-        consumo_valor = consumo.consumo_diferenca
-        tk.Label(item_frame, text=f"{consumo_valor:.1f} kWh", bg=bg_color, font=("Arial", 10), width=10, anchor='center').pack(side='left', padx=5)
-        
-        # Valor
-        valor = consumo.consumo_individual_proporcional if consumo.consumo_individual_proporcional else 0
-        tk.Label(item_frame, text=f"R$ {valor:.2f}", bg=bg_color, font=("Arial", 10, "bold"), fg='#2E7D32', width=12, anchor='center').pack(side='left', padx=5)
-        
-        # Botões
-        action_frame = tk.Frame(item_frame, bg=bg_color)
-        action_frame.pack(side='left', padx=5)
-        
-        tk.Button(
-            action_frame,
-            text="👁️ Ver",
-            command=lambda: self.view_consumo_detail(consumo),
-            bg='#9C27B0',
-            fg='white',
-            font=("Arial", 9),
-            relief='flat',
-            cursor='hand2',
-            padx=8,
-            pady=5
-        ).pack(side='left', padx=2)
-        
-        tk.Button(
-            action_frame,
-            text="🖨️ Imprimir",
-            command=lambda: self.reprint_pdf(consumo),
-            bg='#2196F3',
-            fg='white',
-            font=("Arial", 9),
-            relief='flat',
-            cursor='hand2',
-            padx=8,
-            pady=5
-        ).pack(side='left', padx=2)
-        
-        tk.Button(
-            action_frame,
-            text="🗑️",
-            command=lambda: self.delete_consumo(consumo.id),
-            bg='#F44336',
-            fg='white',
-            font=("Arial", 9),
-            relief='flat',
-            cursor='hand2',
-            padx=8,
-            pady=5
-        ).pack(side='left', padx=2)
+
+        # Header and items via history widget
+        if hasattr(self, 'history_widget'):
+            self.history_widget.create_header()
+            view_callbacks = {
+                'view': self.view_consumo_detail,
+                'reprint': self.reprint_pdf,
+                'delete': self.delete_consumo,
+            }
+            for i, consumo in enumerate(consumos_todos):
+                self.history_widget.add_item(consumo, i, view_callbacks)
+            return
+
+    # all rendering handled by HistoryList widget
     
     def view_consumo_detail(self, consumo):
         """Visualiza detalhes do consumo"""
@@ -652,12 +396,14 @@ class ElectricityBillView(tk.Frame):
             chave_pix = os.getenv("PIX", "sua-chave-aqui")
             banco = os.getenv("BANCO", "Seu Banco Aqui")
 
+            mes = consumo.mes
+            ano = consumo.ano
             dados_pdf = {
                 "logo": None,
                 "inquilino": casa.inquilino_atual.nome_completo,
                 "endereco": casa.endereco,
-                "mes_referencia": f"{meses[consumo.mes-1]} / {consumo.ano}",
-                "vencimento": "15/03/2025",
+                "mes_referencia": f"{meses[mes-1]} / {ano}",
+                "vencimento": f"{5:02d}/{mes+1:02d}/{ano}",
                 "leituras": [
                     {"data": "Anterior", "leitura": consumo.consumo_mes_anterior},
                     {"data": "Atual", "leitura": consumo.consumo_mes_atual}
