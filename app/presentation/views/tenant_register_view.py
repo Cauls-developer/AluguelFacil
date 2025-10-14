@@ -3,6 +3,8 @@ from tkinter import ttk, messagebox
 from datetime import datetime
 from app.data.models.Tenant import Inquilino
 from app.data.repositories.tenant_repository import InquilinoRepository
+from app.presentation.views.widgets.header_widget import create_header
+from app.presentation.views.widgets.tenant_list_widget import TenantListWidget
 
 class TenantRegisterView(tk.Frame):
     """Tela de registro e gerenciamento de inquilinos"""
@@ -18,242 +20,34 @@ class TenantRegisterView(tk.Frame):
     
     def create_widgets(self):
         # Header
-        header_frame = tk.Frame(self, bg='#1565C0')
-        header_frame.pack(fill='x')
-        
-        tk.Label(
-            header_frame,
-            text="Gerenciamento de Inquilinos",
-            font=("Arial", 20, "bold"),
-            bg='#1565C0',
-            fg='white'
-        ).pack(pady=15)
-        
-        tk.Button(
-            header_frame,
-            text="← Voltar",
-            command=lambda: self.controller.show_frame("home"),
-            bg='#0D47A1',
-            fg='white',
-            font=("Arial", 10),
-            relief='flat',
-            cursor='hand2'
-        ).place(x=10, y=10)
-        
-        # Container principal
-        container = tk.Frame(self, bg='#f0f0f0')
-        container.pack(fill='both', expand=True, padx=20, pady=20)
-        
-        # Botão adicionar no topo
-        top_frame = tk.Frame(container, bg='#f0f0f0')
-        top_frame.pack(fill='x', pady=(0, 10))
-        
-        tk.Button(
-            top_frame,
-            text="➕ Adicionar Novo Inquilino",
-            command=self.open_add_dialog,
-            bg='#4CAF50',
-            fg='white',
-            font=("Arial", 12, "bold"),
-            padx=20,
-            pady=10,
-            relief='flat',
-            cursor='hand2'
-        ).pack(side='left')
-        
-        # Barra de busca
-        search_frame = tk.Frame(container, bg='white', relief='solid', borderwidth=1)
-        search_frame.pack(fill='x', pady=(0, 15))
-        
-        tk.Label(search_frame, text="🔍 Buscar:", bg='white', font=("Arial", 10)).pack(side='left', padx=10)
-        self.search_var = tk.StringVar()
+        create_header(self, self.controller, title="Gerenciamento de Inquilinos")
+        # Tenant list widget
+        self.tenant_list = TenantListWidget(self, on_add=self.open_add_dialog, on_view=self.open_view_dialog, on_edit=self.open_edit_dialog, on_delete=self.delete_inquilino)
+        # expose search var used by filter and bind change to filter handler
+        self.search_var = self.tenant_list.search_var
         self.search_var.trace('w', lambda *args: self.filter_inquilinos())
-        search_entry = tk.Entry(search_frame, textvariable=self.search_var, font=("Arial", 11), width=40)
-        search_entry.pack(side='left', padx=5, pady=8)
-        
-        # Frame da lista com scroll
-        list_container = tk.Frame(container, bg='white', relief='solid', borderwidth=1)
-        list_container.pack(fill='both', expand=True)
-        
-        # Canvas para scroll
-        self.canvas = tk.Canvas(list_container, bg='white', highlightthickness=0)
-        scrollbar = ttk.Scrollbar(list_container, orient="vertical", command=self.canvas.yview)
-        self.scrollable_frame = tk.Frame(self.canvas, bg='white')
-        
-        self.scrollable_frame.bind(
-            "<Configure>",
-            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-        )
-        
-        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-        self.canvas.configure(yscrollcommand=scrollbar.set)
-        
-        self.canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-        
-        # Bind mousewheel
-        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        self.canvas = self.tenant_list.canvas
+        self.scrollable_frame = self.tenant_list.scrollable_frame
     
     def _on_mousewheel(self, event):
         self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
     
     def load_inquilinos(self):
         """Carrega inquilinos na lista"""
-        for widget in self.scrollable_frame.winfo_children():
-            widget.destroy()
-        
         inquilinos = self.inquilino_repo.get_all()
-        
-        if not inquilinos:
-            tk.Label(
-                self.scrollable_frame,
-                text="Nenhum inquilino cadastrado ainda",
-                font=("Arial", 12),
-                bg='white',
-                fg='gray'
-            ).pack(pady=50)
-            return
-        
-        # Header da lista
-        header = tk.Frame(self.scrollable_frame, bg='#E3F2FD', height=40)
-        header.pack(fill='x', padx=10, pady=(10, 0))
-        
-        tk.Label(header, text="Nome", bg='#E3F2FD', font=("Arial", 10, "bold"), width=25, anchor='w').pack(side='left', padx=5)
-        tk.Label(header, text="CPF", bg='#E3F2FD', font=("Arial", 10, "bold"), width=15, anchor='w').pack(side='left', padx=5)
-        tk.Label(header, text="Telefone", bg='#E3F2FD', font=("Arial", 10, "bold"), width=15, anchor='w').pack(side='left', padx=5)
-        tk.Label(header, text="Nascimento", bg='#E3F2FD', font=("Arial", 10, "bold"), width=12, anchor='center').pack(side='left', padx=5)
-        tk.Label(header, text="Ações", bg='#E3F2FD', font=("Arial", 10, "bold"), width=15, anchor='center').pack(side='left', padx=5)
-        
-        # Itens da lista
-        for i, inquilino in enumerate(inquilinos):
-            self.create_inquilino_item(inquilino, i)
+        self.tenant_list.set_items(inquilinos)
     
-    def create_inquilino_item(self, inquilino, index):
-        """Cria um item de inquilino na lista"""
-        bg_color = '#FFFFFF' if index % 2 == 0 else '#F5F5F5'
-        
-        item_frame = tk.Frame(self.scrollable_frame, bg=bg_color, relief='solid', borderwidth=1)
-        item_frame.pack(fill='x', padx=10, pady=2)
-        
-        # Nome
-        tk.Label(
-            item_frame,
-            text=inquilino.nome_completo[:30] + "..." if len(inquilino.nome_completo) > 30 else inquilino.nome_completo,
-            bg=bg_color,
-            font=("Arial", 10),
-            width=25,
-            anchor='w'
-        ).pack(side='left', padx=5, pady=10)
-        
-        # CPF
-        tk.Label(
-            item_frame,
-            text=inquilino.cpf,
-            bg=bg_color,
-            font=("Arial", 10),
-            width=15,
-            anchor='w'
-        ).pack(side='left', padx=5)
-        
-        # Telefone
-        tk.Label(
-            item_frame,
-            text=inquilino.telefone,
-            bg=bg_color,
-            font=("Arial", 10),
-            width=15,
-            anchor='w'
-        ).pack(side='left', padx=5)
-        
-        # Data de Nascimento
-        data_nasc = inquilino.data_nascimento.strftime('%d/%m/%Y') if inquilino.data_nascimento else "-"
-        tk.Label(
-            item_frame,
-            text=data_nasc,
-            bg=bg_color,
-            font=("Arial", 10),
-            width=12,
-            anchor='center'
-        ).pack(side='left', padx=5)
-        
-        # Botões de ação
-        action_frame = tk.Frame(item_frame, bg=bg_color)
-        action_frame.pack(side='left', padx=5)
-        
-        tk.Button(
-            action_frame,
-            text="👁️ Ver",
-            command=lambda: self.open_view_dialog(inquilino),
-            bg='#9C27B0',
-            fg='white',
-            font=("Arial", 9),
-            relief='flat',
-            cursor='hand2',
-            padx=8,
-            pady=5
-        ).pack(side='left', padx=2)
-        
-        tk.Button(
-            action_frame,
-            text="✏️ Editar",
-            command=lambda: self.open_edit_dialog(inquilino),
-            bg='#2196F3',
-            fg='white',
-            font=("Arial", 9),
-            relief='flat',
-            cursor='hand2',
-            padx=8,
-            pady=5
-        ).pack(side='left', padx=2)
-        
-        tk.Button(
-            action_frame,
-            text="🗑️",
-            command=lambda: self.delete_inquilino(inquilino.id),
-            bg='#F44336',
-            fg='white',
-            font=("Arial", 9),
-            relief='flat',
-            cursor='hand2',
-            padx=8,
-            pady=5
-        ).pack(side='left', padx=2)
+    # item rendering delegated to TenantListWidget
     
     def filter_inquilinos(self):
         """Filtra inquilinos pela busca"""
         search_term = self.search_var.get().lower()
-        
-        for widget in self.scrollable_frame.winfo_children():
-            widget.destroy()
-        
         inquilinos = self.inquilino_repo.get_all()
         filtered = [i for i in inquilinos if 
                    search_term in i.nome_completo.lower() or 
                    search_term in i.cpf or
                    search_term in i.telefone]
-        
-        if not filtered:
-            tk.Label(
-                self.scrollable_frame,
-                text="Nenhum inquilino encontrado",
-                font=("Arial", 12),
-                bg='white',
-                fg='gray'
-            ).pack(pady=50)
-            return
-        
-        # Header
-        header = tk.Frame(self.scrollable_frame, bg='#E3F2FD', height=40)
-        header.pack(fill='x', padx=10, pady=(10, 0))
-        
-        tk.Label(header, text="Nome", bg='#E3F2FD', font=("Arial", 10, "bold"), width=25, anchor='w').pack(side='left', padx=5)
-        tk.Label(header, text="CPF", bg='#E3F2FD', font=("Arial", 10, "bold"), width=15, anchor='w').pack(side='left', padx=5)
-        tk.Label(header, text="Telefone", bg='#E3F2FD', font=("Arial", 10, "bold"), width=15, anchor='w').pack(side='left', padx=5)
-        tk.Label(header, text="Nascimento", bg='#E3F2FD', font=("Arial", 10, "bold"), width=12, anchor='center').pack(side='left', padx=5)
-        tk.Label(header, text="Ações", bg='#E3F2FD', font=("Arial", 10, "bold"), width=15, anchor='center').pack(side='left', padx=5)
-        
-        for i, inquilino in enumerate(filtered):
-            self.create_inquilino_item(inquilino, i)
+        self.tenant_list.set_items(filtered)
     
     def open_view_dialog(self, inquilino):
         """Abre diálogo de visualização"""
