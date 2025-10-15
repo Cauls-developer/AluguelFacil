@@ -1,3 +1,4 @@
+
 import tkinter as tk
 from tkinter import ttk, messagebox
 from app.data.models.house import Casa
@@ -6,6 +7,25 @@ from app.data.repositories.house_repository import CasaRepository
 from app.data.repositories.tenant_repository import InquilinoRepository
 from app.presentation.views.widgets.header_widget import create_header
 from app.presentation.views.widgets.house_list_widget import HouseListWidget
+
+
+def parse_numero_quartos(valor):
+    """
+    Converte o valor de quartos para inteiro.
+    Se for '5+', retorna 5.
+    Se vazio, retorna None.
+    """
+    if not valor or valor.strip() == '':
+        return None
+    
+    # Remove '+' se existir e converte para int
+    valor_limpo = valor.replace('+', '').strip()
+    
+    try:
+        return int(valor_limpo)
+    except ValueError:
+        return None
+
 
 class HouseRegisterView(tk.Frame):
     """Tela de registro e gerenciamento de casas"""
@@ -25,7 +45,12 @@ class HouseRegisterView(tk.Frame):
         create_header(self, self.controller, title="Gerenciamento de Casas")
 
         # House list widget
-        self.house_list = HouseListWidget(self, on_add=self.open_add_dialog, on_edit=self.open_edit_dialog, on_delete=self.delete_casa)
+        self.house_list = HouseListWidget(
+            self, 
+            on_add=self.open_add_dialog, 
+            on_edit=self.open_edit_dialog, 
+            on_delete=self.delete_casa
+        )
         self.search_var = self.house_list.search_var
         self.search_var.trace('w', lambda *args: self.filter_casas())
         self.canvas = self.house_list.canvas
@@ -37,9 +62,7 @@ class HouseRegisterView(tk.Frame):
     def load_casas(self):
         """Carrega casas na lista"""
         casas = self.casa_repo.get_all()
-        self.house_list.set_items(casas)  # items handled by widget
-    
-    # create_casa_item removed — rendering delegated to HouseListWidget
+        self.house_list.set_items(casas)
     
     def filter_casas(self):
         """Filtra casas pela busca"""
@@ -74,7 +97,7 @@ class HouseRegisterView(tk.Frame):
         tk.Label(header, text="Inquilino", bg='#E3F2FD', font=("Arial", 10, "bold"), width=25, anchor='w').pack(side='left', padx=5)
         tk.Label(header, text="Ações", bg='#E3F2FD', font=("Arial", 10, "bold"), width=15, anchor='center').pack(side='left', padx=5)
         
-        self.house_list.set_items(filtered)  # items handled by widget
+        self.house_list.set_items(filtered)
     
     def open_add_dialog(self):
         """Abre diálogo para adicionar casa"""
@@ -129,7 +152,9 @@ class HouseRegisterView(tk.Frame):
         def save():
             nome = entry_nome.get().strip()
             endereco = entry_endereco.get().strip()
-            numero_quartos = int(entry_quartos.get()) if entry_quartos.get() else None
+            
+            # CORREÇÃO AQUI:
+            numero_quartos = parse_numero_quartos(entry_quartos.get())
             
             if not nome or not endereco:
                 messagebox.showerror("Erro", "Preencha nome e endereço!")
@@ -139,7 +164,12 @@ class HouseRegisterView(tk.Frame):
             inquilino_id = inquilinos_dict.get(inquilino_sel) if inquilino_sel != 'Nenhum' else None
             
             try:
-                nova_casa = Casa(nome=nome, endereco=endereco, inquilino_id=inquilino_id, numero_quartos=numero_quartos)
+                nova_casa = Casa(
+                    nome=nome, 
+                    endereco=endereco, 
+                    inquilino_id=inquilino_id, 
+                    numero_quartos=numero_quartos
+                )
                 self.casa_repo.create(nova_casa)
                 messagebox.showinfo("Sucesso", "Casa cadastrada com sucesso!")
                 dialog.destroy()
@@ -204,6 +234,10 @@ class HouseRegisterView(tk.Frame):
 
         tk.Label(form, text="Número de Quartos:", bg='white', font=("Arial", 10)).pack(anchor='w')
         entry_quartos = ttk.Combobox(form, font=("Arial", 11), width=43, state='readonly', values=['1', '2', '3', '4', '5+'])
+        if casa.numero_quartos:
+            # Se for 5 ou mais, mostra "5+"
+            valor = '5+' if casa.numero_quartos >= 5 else str(casa.numero_quartos)
+            entry_quartos.set(valor)
         entry_quartos.pack(fill='x', pady=(5, 10))
         
         tk.Label(form, text="Endereço Completo:*", bg='white', font=("Arial", 10)).pack(anchor='w')
@@ -236,7 +270,9 @@ class HouseRegisterView(tk.Frame):
         def update():
             nome = entry_nome.get().strip()
             endereco = entry_endereco.get().strip()
-            numero_quartos = int(entry_quartos.get()) if entry_quartos.get() else None
+            
+            # CORREÇÃO AQUI TAMBÉM:
+            numero_quartos = parse_numero_quartos(entry_quartos.get())
             
             if not nome or not endereco:
                 messagebox.showerror("Erro", "Preencha nome e endereço!")
