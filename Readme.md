@@ -130,7 +130,7 @@ Baixe a versão mais recente:
 📦 Tamanho: ~120 MB
 ```
 
-[⬇️ **Download Direto**](https://github.com/seu-usuario/aluguel-facil/releases/latest)
+[⬇️ **Download Direto**](https://github.com/Cauls-developer/AluguelFacil/releases/latest)
 
 #### 2️⃣ Executar a Instalação
 
