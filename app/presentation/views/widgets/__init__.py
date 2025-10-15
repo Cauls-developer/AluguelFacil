@@ -6,6 +6,8 @@ __all__ = [
     "history_list_widget",
     "tenant_list_widget",
     "house_list_widget",
-    "new_contract_form_widget",  # NOVO
-    "contract_list_widget"  # NOVO
+    "new_contract_form_widget",
+    "contract_list_widget",
+    "new_receipt_form_widget",
+    "receipt_list_widget",
 ]

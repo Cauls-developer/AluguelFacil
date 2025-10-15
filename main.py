@@ -1,5 +1,5 @@
 import tkinter as tk
-from app.data.database.base import DatabaseConfig
+from app.data.database.base import DatabaseConfig, Base
 
 
 class RentalManagementApp(tk.Tk):
@@ -8,14 +8,33 @@ class RentalManagementApp(tk.Tk):
     def __init__(self):
         super().__init__()
         
+
         # Configurações da janela
         self.title("Sistema de Gestão de Aluguéis")
-        self.geometry("1200x800")
-        self.state('zoomed')  # Maximizar janela no Windows
+
+        # Centralizar janela
+        window_width = 1200
+        window_height = 800
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        x = (screen_width - window_width) // 2
+        y = (screen_height - window_height) // 2
+        self.geometry(f"{window_width}x{window_height}+{x}+{y}")
         
         # Configurar banco de dados
         self.db_config = DatabaseConfig()
         self.db_config.initialize()
+        
+        # ADICIONE ESTAS LINHAS - Importa todos os modelos e cria as tabelas
+        from app.data.models.house import Casa
+        from app.data.models.Tenant import Inquilino
+        from app.data.models.consumption import Consumo
+        from app.data.models.contract import Contrato
+        from app.data.models.receipt import Recibo
+        
+        # Cria todas as tabelas no banco de dados
+        Base.metadata.create_all(self.db_config.engine)
+        print("✅ Banco de dados inicializado com todas as tabelas!")
         
         # Container para as views
         self.container = tk.Frame(self)
@@ -57,7 +76,11 @@ class RentalManagementApp(tk.Tk):
         elif frame_name == "gestao_contratos":
             from app.presentation.views.contract_view import ContractView
             frame = ContractView(self.container, self)
-        
+
+        elif frame_name == "gestao_recibos":
+            from app.presentation.views.receipt_view import ReceiptView
+            frame = ReceiptView(self.container, self)
+
         else:
             print(f"Frame '{frame_name}' não encontrado!")
             return

@@ -3,3 +3,4 @@ from .house_repository import CasaRepository
 from .tenant_repository import InquilinoRepository
 from .consumption_repository import ConsumoRepository
 from .contract_repository import ContratoRepository
+from .receipt_repository import ReciboRepository
