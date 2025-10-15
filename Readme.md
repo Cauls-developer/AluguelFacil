@@ -450,7 +450,7 @@ Contribuições são bem-vindas!
 
 ### Reportar Bugs
 
-Encontrou um bug? [Abra uma issue](https://github.com/seu-usuario/aluguel-facil/issues/new) com:
+Encontrou um bug? [Abra uma issue](https://github.com/cauls-developer/aluguel-facil/issues/new) com:
 
 - Descrição clara do problema
 - Passos para reproduzir
@@ -493,11 +493,8 @@ SOFTWARE.
 ## 📞 Suporte
 
 ### Precisa de ajuda?
-
-- 📧 **Email**: seu-email@exemplo.com
-- 💬 **WhatsApp**: (71) 99999-9999
-- 🐛 **Issues**: [GitHub Issues](https://github.com/seu-usuario/aluguel-facil/issues)
-- 📚 **Documentação**: [Wiki do Projeto](https://github.com/seu-usuario/aluguel-facil/wiki)
+- 🐛 **Issues**: [GitHub Issues](https://github.com/cauls-developer/aluguel-facil/issues)
+- 📚 **Documentação**: [Wiki do Projeto](https://github.com/cauls-developer/aluguel-facil/wiki)
 
 ### FAQ - Perguntas Frequentes
 
