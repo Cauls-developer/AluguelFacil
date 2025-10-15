@@ -3,4 +3,4 @@ sqlalchemy
 dotenv
 tkcalendar
 python-dateutil
-PyInstaller
+pyinstaller
