@@ -1,3 +1,5 @@
 reportlab
 sqlalchemy
 dotenv
+tkcalendar
+python-dateutil

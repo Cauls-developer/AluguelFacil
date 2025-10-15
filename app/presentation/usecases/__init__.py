@@ -1,1 +1,2 @@
 from .generate_pdf_usecase import gerar_conta_inquilino
+from .generate_contract_pdf_usecase import gerar_contrato_locacao

@@ -103,6 +103,10 @@ class HouseRegisterView(tk.Frame):
         tk.Label(form, text="Nome da Casa:*", bg='white', font=("Arial", 10)).pack(anchor='w', pady=(10, 0))
         entry_nome = tk.Entry(form, font=("Arial", 11), width=45)
         entry_nome.pack(fill='x', pady=(5, 10))
+
+        tk.Label(form, text="Número de Quartos:", bg='white', font=("Arial", 10)).pack(anchor='w')
+        entry_quartos = ttk.Combobox(form, font=("Arial", 11), width=43, state='readonly', values=['1', '2', '3', '4', '5+'])
+        entry_quartos.pack(fill='x', pady=(5, 10))
         
         tk.Label(form, text="Endereço Completo:*", bg='white', font=("Arial", 10)).pack(anchor='w')
         entry_endereco = tk.Entry(form, font=("Arial", 11), width=45)
@@ -125,6 +129,7 @@ class HouseRegisterView(tk.Frame):
         def save():
             nome = entry_nome.get().strip()
             endereco = entry_endereco.get().strip()
+            numero_quartos = int(entry_quartos.get()) if entry_quartos.get() else None
             
             if not nome or not endereco:
                 messagebox.showerror("Erro", "Preencha nome e endereço!")
@@ -134,7 +139,7 @@ class HouseRegisterView(tk.Frame):
             inquilino_id = inquilinos_dict.get(inquilino_sel) if inquilino_sel != 'Nenhum' else None
             
             try:
-                nova_casa = Casa(nome=nome, endereco=endereco, inquilino_id=inquilino_id)
+                nova_casa = Casa(nome=nome, endereco=endereco, inquilino_id=inquilino_id, numero_quartos=numero_quartos)
                 self.casa_repo.create(nova_casa)
                 messagebox.showinfo("Sucesso", "Casa cadastrada com sucesso!")
                 dialog.destroy()
@@ -196,6 +201,10 @@ class HouseRegisterView(tk.Frame):
         entry_nome = tk.Entry(form, font=("Arial", 11), width=45)
         entry_nome.insert(0, casa.nome)
         entry_nome.pack(fill='x', pady=(5, 10))
+
+        tk.Label(form, text="Número de Quartos:", bg='white', font=("Arial", 10)).pack(anchor='w')
+        entry_quartos = ttk.Combobox(form, font=("Arial", 11), width=43, state='readonly', values=['1', '2', '3', '4', '5+'])
+        entry_quartos.pack(fill='x', pady=(5, 10))
         
         tk.Label(form, text="Endereço Completo:*", bg='white', font=("Arial", 10)).pack(anchor='w')
         entry_endereco = tk.Entry(form, font=("Arial", 11), width=45)
@@ -227,6 +236,7 @@ class HouseRegisterView(tk.Frame):
         def update():
             nome = entry_nome.get().strip()
             endereco = entry_endereco.get().strip()
+            numero_quartos = int(entry_quartos.get()) if entry_quartos.get() else None
             
             if not nome or not endereco:
                 messagebox.showerror("Erro", "Preencha nome e endereço!")
@@ -239,6 +249,7 @@ class HouseRegisterView(tk.Frame):
                 casa.nome = nome
                 casa.endereco = endereco
                 casa.inquilino_id = inquilino_id
+                casa.numero_quartos = numero_quartos
                 self.casa_repo.update(casa)
                 messagebox.showinfo("Sucesso", "Casa atualizada com sucesso!")
                 dialog.destroy()

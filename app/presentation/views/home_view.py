@@ -71,6 +71,15 @@ class HomeView(tk.Frame):
             **button_style
         )
         btn_conta.pack(pady=15)
+
+        # Botão Gestão de Contratos
+        btn_contratos = tk.Button(
+            button_frame,
+            text="📄 Gestão de Contratos",
+            command=lambda: controller.show_frame("gestao_contratos"),
+            **button_style
+        )
+        btn_contratos.pack(pady=15)
         
         # Rodapé
         footer = tk.Label(

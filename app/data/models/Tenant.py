@@ -17,13 +17,21 @@ class Inquilino(Base):
     
     # Relacionamentos
     casa = relationship("Casa", back_populates="inquilino_atual", uselist=False)
+    contratos = relationship("Contrato", back_populates="inquilino")  # NOVO: relação com contratos
     
     def __repr__(self):
         return f"<Inquilino(id={self.id}, nome='{self.nome_completo}', cpf='{self.cpf}')>"
     
-    def to_dict(self):
+    @property
+    def tem_contrato_ativo(self):
+        """Verifica se o inquilino tem algum contrato ativo"""
+        if not hasattr(self, 'contratos') or not self.contratos:
+            return False
+        return any(c.ativo == 1 for c in self.contratos)
+    
+    def to_dict(self, include_contratos=False):
         """Converte o objeto para dicionário"""
-        return {
+        data = {
             'id': self.id,
             'nome_completo': self.nome_completo,
             'cpf': self.cpf,
@@ -31,3 +39,8 @@ class Inquilino(Base):
             'telefone': self.telefone,
             'nome_fiador': self.nome_fiador
         }
+        
+        if include_contratos:
+            data['contratos'] = [c.to_dict() for c in self.contratos]
+        
+        return data
